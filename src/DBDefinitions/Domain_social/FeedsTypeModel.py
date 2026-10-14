@@ -19,7 +19,7 @@ from src.DBDefinitions.BaseModel import BaseDBModel, UUIDColumn, UUIDFKey, IDTyp
 #
 ###########################################################################################################################
 
-class EventTypeModel(BaseDBModel):
+class FeedsTypeModel(BaseDBModel):
     __tablename__ = "feedtypes"
 
     path_attribute_name = "path"
@@ -63,8 +63,8 @@ class EventTypeModel(BaseDBModel):
     ) # https://docs.sqlalchemy.org/en/20/orm/self_referential.html
     # https://docs.sqlalchemy.org/en/20/_modules/examples/materialized_paths/materialized_paths.html
 
-    events = relationship(
-        "EventModel", 
-        back_populates="type",
-        viewonly=True
-    )
+    #events = relationship(
+        #"EventModel", 
+        #back_populates="type",
+        #viewonly=True
+    #)
