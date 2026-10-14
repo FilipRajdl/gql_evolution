@@ -22,10 +22,10 @@ from src.DBDefinitions.BaseModel import BaseDBModel, UUIDColumn, UUIDFKey, IDTyp
 class FeedsModel(BaseDBModel):
     __tablename__ = "feeds"
     
-    name: Mapped[str] = mapped_column(default=None, nullable=True, comment="aka lecture, laboratory, ...")
-    description: Mapped[str] = mapped_column(default=None, nullable=True, comment="User assigned to the invitation")
-    owner: Mapped[str] = mapped_column(default=None, nullable=True, comment="State assigned to the invitation")
-    color: Mapped[str] = mapped_column(default=None, nullable=True, comment="State assigned to the invitation")
+    name: Mapped[str] = mapped_column(default=None, nullable=True, comment="Name of the feed")
+    description: Mapped[str] = mapped_column(default=None, nullable=True, comment="Description of the feed")
+    owner_id: Mapped[Optional[IDType]] = mapped_column(default=None, nullable=True, comment="ID of the feed owner")
+    color: Mapped[str] = mapped_column(default=None, nullable=True, comment="Color of the feed")
 
     
     # Relationships: viewonly indicates that these relationships are loaded via foreign keys.
