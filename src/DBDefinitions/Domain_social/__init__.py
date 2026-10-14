@@ -1,5 +1,5 @@
 from .FeedsModel import FeedsModel
-from .EventInvitationModel import EventInvitationModel
+#from .EventInvitationModel import EventInvitationModel
 from .FeedsTypeModel import FeedsTypeModel
 
-__all__ = ['FeedsModel', 'EventInvitationModel', 'FeedTypeModel']
+__all__ = ['FeedsModel', 'FeedTypeModel']

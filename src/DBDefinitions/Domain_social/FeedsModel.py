@@ -29,12 +29,12 @@ class FeedsModel(BaseDBModel):
 
     
     # Relationships: viewonly indicates that these relationships are loaded via foreign keys.
-    event = relationship(
-        "EventModel",
-        primaryjoin="FeedsModel.event_id==EventModel.id",
-        uselist=False,
-        viewonly=True
-    )
+    #event = relationship(
+        #"EventModel",
+        #primaryjoin="FeedsModel.event_id==EventModel.id",
+        #uselist=False,
+        #viewonly=True
+    #)
 
 
 #                         +-------------+
