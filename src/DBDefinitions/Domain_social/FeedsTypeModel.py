@@ -58,7 +58,7 @@ class FeedsTypeModel(BaseDBModel):
         "FeedsTypeModel", 
         back_populates="parent",
         uselist=True,
-        init=True, #False? -> nebude potřeba seznam children předávat do konstruktoru
+        init=False, #False? -> nebude potřeba seznam children předávat do konstruktoru
         cascade="save-update"
     ) # https://docs.sqlalchemy.org/en/20/orm/self_referential.html
     # https://docs.sqlalchemy.org/en/20/_modules/examples/materialized_paths/materialized_paths.html
