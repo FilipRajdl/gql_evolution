@@ -1,9 +1,20 @@
-{
-    "eventtypes": [
-    ],
-    "events": [
-    ],
-    "event_invitations": [
-    ]
 
+{
+  "eventtypes": [],
+  "events": [],
+  "event_invitations": [],
+  "feedtypes": [
+    {
+      "id": "eedaeb4e-302f-4bb9-8f10-a93d7e28c0d5",
+      "name": "Pracovni feedy",
+      "name_en": "Work feeds",
+      "parent_id": null
+    },
+    {
+      "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "name": "Projektove feedy",
+      "name_en": "Project feeds",
+      "parent_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    }
+  ]
 }
