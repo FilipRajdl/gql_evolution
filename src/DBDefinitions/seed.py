@@ -62,7 +62,7 @@ async def init_database_data(session: AsyncSession, get_demodata=get_demodata) -
         if Model.__name__.endswith("TypeModel")
     ]
 
-    isDemo = os.environ.get("DEMODATA", None) in ["True", "true", True]
+    isDemo = true #os.environ.get("DEMODATA", None) in ["True", "true", True]
 
     ModelNamesToImport = ModelNames if isDemo else TypeNames
 
