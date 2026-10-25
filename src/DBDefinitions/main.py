@@ -599,7 +599,8 @@ async def run_async(args: argparse.Namespace) -> typing.Any:
         raise CliError("Unable to create async session maker")
 
     async with session_maker() as session:
-        await init_database_data(session)
+         #await init_database_data(session)
+         #init_database_data(session)
         operation = args.operation.lower()
 
         if operation in {"create", "c"}:

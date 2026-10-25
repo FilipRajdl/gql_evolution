@@ -1,4 +1,5 @@
 from __future__ import annotations
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import os
 import uuid
@@ -62,7 +63,7 @@ async def init_database_data(session: AsyncSession, get_demodata=get_demodata) -
         if Model.__name__.endswith("TypeModel")
     ]
 
-    isDemo = true #os.environ.get("DEMODATA", None) in ["True", "true", True]
+    isDemo = os.environ.get("DEMODATA", None) in ["True", "true", True]
 
     ModelNamesToImport = ModelNames if isDemo else TypeNames
 
@@ -82,13 +83,21 @@ async def init_database_data(session: AsyncSession, get_demodata=get_demodata) -
     modelIndex = dict((DBModel.__tablename__, DBModel) for DBModel in ModelsToImport)
     print(f"Models to import: {ModelsToImport}\nTable names: {table_names}\nModel index: {modelIndex}", flush=True)
 
-    @asynccontextmanager
-    async def session_maker():
-        try:
-            yield session
-        finally:
-            pass
+    session_maker = async_sessionmaker(
+        bind=session.bind,
+        expire_on_commit=False,
+    )
 
     await ImportModels(session_maker, ModelsToImport, json_data)
 
     print("Data initialized", flush=True)
+
+if __name__ == "__main__":
+    import asyncio
+    from src.DBDefinitions.runtime import Database, DatabaseSettings
+
+    asyncio.run(
+        Database().start(
+            DatabaseSettings(make_drop=False, seed_data=True)
+        )
+    )
