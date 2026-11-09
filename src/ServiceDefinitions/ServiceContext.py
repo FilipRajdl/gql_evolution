@@ -6,6 +6,10 @@ from src.Dataloaders import LoaderMap
 if typing.TYPE_CHECKING:
     from src.ServiceDefinitions.Domain_Events.EventService import EventService as _EventService
     from src.ServiceDefinitions.Domain_Events.EventInvitationService import EventInvitationService as _EventInvitationService
+    from src.ServiceDefinitions.Domain_Social.FeedsService import FeedsService as _FeedsService
+    from src.ServiceDefinitions.Domain_Social.FeedSourceService import FeedSourceService as _FeedSourceService
+    from src.ServiceDefinitions.Domain_Social.FeedsTypeService import FeedsTypeService as _FeedsTypeService
+
 
 
 @dataclasses.dataclass(frozen=True)
@@ -19,6 +23,27 @@ class ServiceRegistry:
     def EventInvitationService(self) -> type['_EventInvitationService']:
         from src.ServiceDefinitions.Domain_Events.EventInvitationService import EventInvitationService
         return EventInvitationService
+
+    
+    @property
+    def FeedsService(self) -> type['_FeedsService']:
+        from src.ServiceDefinitions.Domain_Social.FeedsService import FeedsService
+        return FeedsService
+
+    
+    @property
+    def FeedSourceService(self) -> type['_FeedSourceService']:
+        from src.ServiceDefinitions.Domain_Social.FeedSourceService import FeedSourceService
+        return FeedSourceService
+
+    
+    @property
+    def FeedsTypeService(self) -> type['_FeedsTypeService']:
+        from src.ServiceDefinitions.Domain_Social.FeedsTypeService import FeedsTypeService
+        return FeedsTypeService
+    
+    
+    
 
 
 SERVICES = ServiceRegistry()
