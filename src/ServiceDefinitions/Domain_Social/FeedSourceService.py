@@ -10,6 +10,13 @@ from src.ServiceDefinitions.BaseService import (
 )
 from src.ServiceDefinitions.ServiceContext import ServiceContext
 
+from .errors import (
+    FEED_SOURCE_NOT_FOUND,
+    FEED_SOURCE_NOT_OWNER,
+    ERROR_MESSAGES,
+)
+
+
 
 class FeedSourceService(BaseService[IDLoader[FeedSourceModel]]):
 
@@ -28,11 +35,14 @@ class FeedSourceService(BaseService[IDLoader[FeedSourceModel]]):
 
         source = await loader.load(source_id)
 
+        
         if source is None:
             raise ServiceExceptionWithCode(
-                "Feed source not found",
-                code="feed_source_not_found",
+                ERROR_MESSAGES[FEED_SOURCE_NOT_FOUND],
+                code=FEED_SOURCE_NOT_FOUND,
+                location="EnsureUserIsOwnerForSource",
             )
+
 
         user_id = (
             ctx.user.get("id")
@@ -43,17 +53,20 @@ class FeedSourceService(BaseService[IDLoader[FeedSourceModel]]):
         if isinstance(user_id, str):
             user_id = uuid.UUID(user_id)
 
+        
         if user_id is None or user_id != source.owner_id:
             raise ServiceExceptionWithCode(
-                "You are not the owner of this feed source",
-                code="feed_source_not_owner",
+                ERROR_MESSAGES[FEED_SOURCE_NOT_OWNER],
+                code=FEED_SOURCE_NOT_OWNER,
+                location="EnsureUserIsOwnerForSource",
             )
 
         return source
 
 
+    
     @classmethod
-    async def UpdateByOwner(cls, ctx: ServiceContext, entity):
+    async def UpdateByOwner(cls, ctx: ServiceContext, entity, extraValues=None):
         loader = await cls.getLoader(ctx)
 
         await cls.EnsureUserIsOwnerForSource(
@@ -61,7 +74,10 @@ class FeedSourceService(BaseService[IDLoader[FeedSourceModel]]):
             source_id=entity.id,
         )
 
-        return await loader.update(entity=entity)
+        return await loader.update(
+            entity=entity,
+            extraValues=extraValues or {},
+        )
 
     @classmethod
     async def DeleteByOwner(cls, ctx: ServiceContext, entity):
@@ -83,3 +99,20 @@ class FeedSourceService(BaseService[IDLoader[FeedSourceModel]]):
 
         sources = await loader.filter_by(feed_id=feed_id)
         return list(sources)
+
+    
+    @classmethod
+    async def Update(cls, ctx: ServiceContext, entity, extraValues=None):
+        return await cls.UpdateByOwner(
+            ctx=ctx,
+            entity=entity,
+            extraValues=extraValues,
+        )
+
+    @classmethod
+    async def Delete(cls, ctx: ServiceContext, entity):
+        return await cls.DeleteByOwner(
+            ctx=ctx,
+            entity=entity,
+        )
+    

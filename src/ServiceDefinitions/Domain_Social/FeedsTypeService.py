@@ -1,4 +1,4 @@
-
+import uuid
 from uoishelpers.dataloaders.IDLoader import IDLoader
 
 from src.DBDefinitions import FeedsTypeModel
@@ -12,3 +12,15 @@ class FeedsTypeService(BaseService[IDLoader[FeedsTypeModel]]):
     @classmethod
     async def getLoader(cls, ctx: ServiceContext) -> IDLoader[FeedsTypeModel]:
         return ctx.loaders.FeedsTypeModel
+
+    
+    @classmethod
+    async def GetChildrenForType(cls, ctx: ServiceContext, parent_id):
+        loader = await cls.getLoader(ctx)
+
+        if isinstance(parent_id, str):
+            parent_id = uuid.UUID(parent_id)
+
+        children = await loader.filter_by(parent_id=parent_id)
+        return list(children)
+    
