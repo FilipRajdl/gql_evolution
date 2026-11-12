@@ -61,6 +61,12 @@ class FeedSourceService(BaseService[IDLoader[FeedSourceModel]]):
                 code=FEED_SOURCE_NOT_OWNER,
                 location="EnsureUserIsOwnerForSource",
             )
+        
+        # Zdroj smi spravovat jen vlastnik nadrazeneho feedu.
+        await ctx.Services.FeedsService.EnsureUserIsOwnerForFeed(
+            ctx=ctx,
+            feed_id=source.feed_id,
+        )    
 
         return source
 
@@ -81,14 +87,7 @@ class FeedSourceService(BaseService[IDLoader[FeedSourceModel]]):
             ctx=ctx,
             source_id=id,
         )
-
-        # A současně musí vlastnit feed,
-        # do kterého zdroj patří.
-        await ctx.Services.FeedsService.EnsureUserIsOwnerForFeed(
-            ctx=ctx,
-            feed_id=source.feed_id,
-        )
-
+        
         return source
 
     @classmethod
@@ -153,8 +152,14 @@ class FeedSourceService(BaseService[IDLoader[FeedSourceModel]]):
 
         loader = await cls.getLoader(ctx)
 
+        
         sources = await loader.filter_by(feed_id=feed.id)
-        return list(sources)
+
+        return [
+            source
+            for source in sources
+            if source.owner_id == feed.owner_id
+        ]
     
     @classmethod
     async def Update(cls, ctx: ServiceContext, entity, extraValues=None):

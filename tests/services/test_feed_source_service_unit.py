@@ -56,13 +56,29 @@ class FakeSourceLoader:
 
 
 def _ctx(loader, user=None):
-    return types.SimpleNamespace(
+    # Pro stare jednotkove testy pripravime
+    # ke kazdemu zdroji odpovidajici feed.
+    feeds = {}
+
+    for source in loader.sources.values():
+        feed_id = getattr(source, "feed_id", None)
+
+        if feed_id is None:
+            feed_id = uuid.uuid4()
+            source.feed_id = feed_id
+
+        feeds[feed_id] = types.SimpleNamespace(
+            id=feed_id,
+            owner_id=getattr(source, "owner_id", None),
+        )
+
+    return ServiceContext(
         user=user,
         loaders=types.SimpleNamespace(
-            FeedSourceModel=loader
+            FeedSourceModel=loader,
+            FeedsModel=FakeSourceLoader(sources=feeds),
         ),
     )
-
 
 @pytest.mark.asyncio
 async def test_owner_can_access_source():
@@ -136,11 +152,19 @@ async def test_get_sources_for_feed():
     source1 = types.SimpleNamespace(
         id=uuid.uuid4(),
         feed_id=feed_id,
+        owner_id=owner_id,
     )
 
     source2 = types.SimpleNamespace(
         id=uuid.uuid4(),
         feed_id=feed_id,
+        owner_id=owner_id,
+    )
+
+    inconsistent_source = types.SimpleNamespace(
+        id=uuid.uuid4(),
+        feed_id=feed_id,
+        owner_id=uuid.uuid4(),
     )
 
     other_source = types.SimpleNamespace(
@@ -157,6 +181,7 @@ async def test_get_sources_for_feed():
             source1.id: source1,
             source2.id: source2,
             other_source.id: other_source,
+            inconsistent_source.id: inconsistent_source,
         }
     )
 
@@ -541,3 +566,52 @@ async def test_cannot_read_foreign_source_by_id(foreign_part):
     )
 
     assert exc.value.code == expected_code
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method_name", ["Update", "Delete"])
+async def test_cannot_modify_source_in_foreign_feed(method_name):
+    owner_id = uuid.uuid4()
+    feed_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+
+    # Zdroj patri nasemu uzivateli.
+    source = types.SimpleNamespace(
+        id=source_id,
+        feed_id=feed_id,
+        owner_id=owner_id,
+    )
+
+    # Ale nadrazeny feed patri nekomu jinemu.
+    feed = types.SimpleNamespace(
+        id=feed_id,
+        owner_id=uuid.uuid4(),
+    )
+
+    source_loader = FakeSourceLoader(
+        sources={source_id: source}
+    )
+
+    feed_loader = FakeSourceLoader(
+        sources={feed_id: feed}
+    )
+
+    ctx = ServiceContext(
+        loaders=types.SimpleNamespace(
+            FeedsModel=feed_loader,
+            FeedSourceModel=source_loader,
+        ),
+        user={"id": str(owner_id)},
+    )
+
+    method = getattr(FeedSourceService, method_name)
+
+    with pytest.raises(ServiceExceptionWithCode) as exc:
+        await method(
+            ctx=ctx,
+            entity=types.SimpleNamespace(id=source_id),
+        )
+
+    assert exc.value.code == FEED_NOT_OWNER
+    assert source_loader.updated_entities == []
+    assert source_loader.deleted_ids == []
