@@ -4,6 +4,8 @@ FEED_SOURCE_NOT_OWNER = "a82d7c19-3f45-4e60-9b12-6c8e1f734a25"
 FEED_NOT_FOUND = "5c8f4a21-9e73-4b62-8d15-2f6a9c037b48"
 FEED_NOT_OWNER = "d7b31e64-2c95-4a80-9f16-83e5b2c74019"
 FEED_USER_REQUIRED = "e4a72c91-6b38-4d05-a92f-17c8e53b604d"
+FEED_SOURCE_IMMUTABLE = "7e2f1a83-6b40-4c95-8d27-1a9f03e65b42"
+
 
 
 
@@ -13,5 +15,5 @@ ERROR_MESSAGES = {
     FEED_NOT_FOUND: "Feed not found",
     FEED_NOT_OWNER: "You are not the owner of this feed",
     FEED_USER_REQUIRED: "Authenticated user is required",
-
+    FEED_SOURCE_IMMUTABLE: "Feed source owner and feed cannot be changed",
 }

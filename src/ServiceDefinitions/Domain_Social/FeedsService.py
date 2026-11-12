@@ -70,6 +70,29 @@ class FeedsService(BaseService[IDLoader[FeedsModel]]):
 
         return feed
 
+    
+    @classmethod
+    async def ReadById(cls, ctx, id):
+        user_id = cls._get_user_id(ctx)
+
+        if isinstance(id, str):
+            id = uuid.UUID(id)
+
+        loader = await cls.getLoader(ctx)
+        feed = await loader.load(id)
+
+        if feed is None:
+            return None
+
+        if feed.owner_id != user_id:
+            raise ServiceExceptionWithCode(
+                ERROR_MESSAGES[FEED_NOT_OWNER],
+                code=FEED_NOT_OWNER,
+                location="FeedsService.ReadById",
+            )
+
+        return feed    
+
     @classmethod
     async def Create(cls, ctx, entity, extraAttributes=None):
         user_id = cls._get_user_id(ctx)
@@ -110,4 +133,31 @@ class FeedsService(BaseService[IDLoader[FeedsModel]]):
         return await super().Delete(
             ctx=ctx,
             entity=feed,
+        )
+
+
+    @classmethod
+    async def ReadPage(
+        cls,
+        ctx,
+        skip=0,
+        limit=10,
+        where=None,
+        orderby=None,
+        desc=None,
+        extendedfilter=None,
+    ):
+        user_id = cls._get_user_id(ctx)
+
+        filters = dict(extendedfilter or {})
+        filters["owner_id"] = user_id
+
+        return await super().ReadPage(
+            ctx=ctx,
+            skip=skip,
+            limit=limit,
+            where=where,
+            orderby=orderby,
+            desc=desc,
+            extendedfilter=filters,
         )

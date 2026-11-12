@@ -154,3 +154,114 @@ async def test_feed_source_service_explicit():
 
     finally:
         await engine.dispose()
+
+@pytest.mark.explicit
+@pytest.mark.asyncio
+async def test_read_page_only_returns_owned_records():
+    engine = create_async_engine(ComposeConnectionString())
+    session_maker = async_sessionmaker(
+        engine,
+        expire_on_commit=False,
+    )
+
+    owner_id = uuid.uuid4()
+    other_id = uuid.uuid4()
+
+    own_feed_id = uuid.uuid4()
+    foreign_feed_id = uuid.uuid4()
+
+    own_source_id = uuid.uuid4()
+    foreign_source_id = uuid.uuid4()
+    inconsistent_source_id = uuid.uuid4()
+
+    try:
+        async with session_maker() as session:
+            try:
+                own_feed = FeedsModel(
+                    id=own_feed_id,
+                    name="Muj testovaci feed",
+                    owner_id=owner_id,
+                )
+
+                foreign_feed = FeedsModel(
+                    id=foreign_feed_id,
+                    name="Cizi testovaci feed",
+                    owner_id=other_id,
+                )
+
+                session.add_all([own_feed, foreign_feed])
+                await session.flush()
+
+                sources = [
+                    FeedSourceModel(
+                        id=own_source_id,
+                        feed_id=own_feed_id,
+                        entity_id=uuid.uuid4(),
+                        entity_type_id=uuid.uuid4(),
+                        owner_id=owner_id,
+                    ),
+                    FeedSourceModel(
+                        id=foreign_source_id,
+                        feed_id=foreign_feed_id,
+                        entity_id=uuid.uuid4(),
+                        entity_type_id=uuid.uuid4(),
+                        owner_id=other_id,
+                    ),
+                    # Simulace starsich nekonzistentnich dat:
+                    # zdroj ma naseho vlastnika, ale cizi feed.
+                    FeedSourceModel(
+                        id=inconsistent_source_id,
+                        feed_id=foreign_feed_id,
+                        entity_id=uuid.uuid4(),
+                        entity_type_id=uuid.uuid4(),
+                        owner_id=owner_id,
+                    ),
+                ]
+
+                session.add_all(sources)
+                await session.flush()
+
+                ctx = ServiceContext(
+                    loaders=LoaderMap(session),
+                    session=session,
+                    user={"id": str(owner_id)},
+                )
+
+                feed_rows = await ctx.Services.FeedsService.ReadPage(
+                    ctx=ctx,
+                    limit=100,
+                    where={
+                        "id": {
+                            "_in": [own_feed_id, foreign_feed_id]
+                        }
+                    },
+                )
+
+                assert {row.id for row in feed_rows} == {
+                    own_feed_id
+                }
+
+                source_rows = await ctx.Services.FeedSourceService.ReadPage(
+                    ctx=ctx,
+                    limit=100,
+                    where={
+                        "id": {
+                            "_in": [
+                                own_source_id,
+                                foreign_source_id,
+                                inconsistent_source_id,
+                            ]
+                        }
+                    },
+                )
+
+                assert {row.id for row in source_rows} == {
+                    own_source_id
+                }
+
+            finally:
+                await session.rollback()
+
+    finally:
+        await engine.dispose()
+

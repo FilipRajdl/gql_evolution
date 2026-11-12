@@ -200,3 +200,27 @@ async def test_other_user_cannot_modify_feed(method_name):
     assert exc.value.code == FEED_NOT_OWNER
     assert loader.feeds[feed.id] is feed
     assert feed.name == "Cizi feed"
+
+@pytest.mark.asyncio
+async def test_cannot_read_foreign_feed_by_id():
+    loader = FakeFeedLoader()
+
+    feed = types.SimpleNamespace(
+        id=uuid.uuid4(),
+        owner_id=uuid.uuid4(),
+        name="Cizi feed",
+    )
+    loader.feeds[feed.id] = feed
+
+    ctx = _ctx(
+        loader,
+        user={"id": str(uuid.uuid4())},
+    )
+
+    with pytest.raises(ServiceExceptionWithCode) as exc:
+        await FeedsService.ReadById(
+            ctx=ctx,
+            id=str(feed.id),
+        )
+
+    assert exc.value.code == FEED_NOT_OWNER

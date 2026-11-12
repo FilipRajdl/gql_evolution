@@ -9,7 +9,12 @@ from src.ServiceDefinitions.Domain_Social.FeedSourceService import FeedSourceSer
 from src.ServiceDefinitions.Domain_Social.errors import (
     FEED_SOURCE_NOT_FOUND,
     FEED_SOURCE_NOT_OWNER,
+    FEED_NOT_OWNER,
+    FEED_USER_REQUIRED,
+    FEED_SOURCE_IMMUTABLE,
+    FEED_NOT_OWNER,
 )
+from src.ServiceDefinitions.ServiceContext import ServiceContext
 
 class FakeSourceLoader:
     
@@ -38,6 +43,15 @@ class FakeSourceLoader:
     async def delete(self, id_):
         self.deleted_ids.append(id_)
         return None
+
+    
+    async def insert(self, *, entity, extraAttributes=None):
+        for key, value in (extraAttributes or {}).items():
+            setattr(entity, key, value)
+
+        self.sources[entity.id] = entity
+        return entity
+    
     
 
 
@@ -108,9 +122,16 @@ async def test_missing_source():
     assert exc_info.value.code == FEED_SOURCE_NOT_FOUND
 
 
+
 @pytest.mark.asyncio
 async def test_get_sources_for_feed():
+    owner_id = uuid.uuid4()
     feed_id = uuid.uuid4()
+
+    feed = types.SimpleNamespace(
+        id=feed_id,
+        owner_id=owner_id,
+    )
 
     source1 = types.SimpleNamespace(
         id=uuid.uuid4(),
@@ -127,7 +148,11 @@ async def test_get_sources_for_feed():
         feed_id=uuid.uuid4(),
     )
 
-    loader = FakeSourceLoader(
+    feed_loader = FakeSourceLoader(
+        sources={feed_id: feed}
+    )
+
+    source_loader = FakeSourceLoader(
         sources={
             source1.id: source1,
             source2.id: source2,
@@ -135,12 +160,52 @@ async def test_get_sources_for_feed():
         }
     )
 
+    ctx = ServiceContext(
+        loaders=types.SimpleNamespace(
+            FeedsModel=feed_loader,
+            FeedSourceModel=source_loader,
+        ),
+        user={"id": str(owner_id)},
+    )
+
     result = await FeedSourceService.GetSourcesForFeed(
-        ctx=_ctx(loader),
+        ctx=ctx,
         feed_id=str(feed_id),
     )
 
     assert result == [source1, source2]
+
+
+@pytest.mark.asyncio
+async def test_other_user_cannot_get_sources_for_feed():
+    feed_id = uuid.uuid4()
+
+    feed = types.SimpleNamespace(
+        id=feed_id,
+        owner_id=uuid.uuid4(),
+    )
+
+    feed_loader = FakeSourceLoader(
+        sources={feed_id: feed}
+    )
+
+    source_loader = FakeSourceLoader()
+
+    ctx = ServiceContext(
+        loaders=types.SimpleNamespace(
+            FeedsModel=feed_loader,
+            FeedSourceModel=source_loader,
+        ),
+        user={"id": str(uuid.uuid4())},
+    )
+
+    with pytest.raises(ServiceExceptionWithCode) as exc:
+        await FeedSourceService.GetSourcesForFeed(
+            ctx=ctx,
+            feed_id=feed_id,
+        )
+
+    assert exc.value.code == FEED_NOT_OWNER
 
 
 @pytest.mark.asyncio
@@ -303,3 +368,176 @@ async def test_standard_crud_allows_owner(method_name):
 
     else:
         assert loader.deleted_ids == [source_id]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "user_type",
+    ["owner", "other", "anonymous"],
+)
+async def test_create_source_permissions(user_type):
+    owner_id = uuid.uuid4()
+    feed_id = uuid.uuid4()
+
+    feed = types.SimpleNamespace(
+        id=feed_id,
+        owner_id=owner_id,
+    )
+
+    feed_loader = FakeSourceLoader(
+        sources={feed_id: feed}
+    )
+
+    source_loader = FakeSourceLoader()
+
+    if user_type == "owner":
+        user = {"id": str(owner_id)}
+    elif user_type == "other":
+        user = {"id": str(uuid.uuid4())}
+    else:
+        user = None
+
+    ctx = ServiceContext(
+        loaders=types.SimpleNamespace(
+            FeedsModel=feed_loader,
+            FeedSourceModel=source_loader,
+        ),
+        user=user,
+    )
+
+    entity = types.SimpleNamespace(
+        id=None,
+        feed_id=feed_id,
+        entity_id=uuid.uuid4(),
+        entity_type_id=uuid.uuid4(),
+        owner_id=uuid.uuid4(),
+    )
+
+    if user_type == "owner":
+        result = await FeedSourceService.Create(
+            ctx=ctx,
+            entity=entity,
+        )
+
+        assert result.owner_id == owner_id
+        assert result.feed_id == feed_id
+        assert result.id is not None
+        assert result.id in source_loader.sources
+
+    else:
+        with pytest.raises(ServiceExceptionWithCode) as exc:
+            await FeedSourceService.Create(
+                ctx=ctx,
+                entity=entity,
+            )
+
+        if user_type == "other":
+            assert exc.value.code == FEED_NOT_OWNER
+        else:
+            assert exc.value.code == FEED_USER_REQUIRED
+
+        assert source_loader.sources == {}
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field_name", ["owner_id", "feed_id"])
+@pytest.mark.parametrize("input_location", ["entity", "extraValues"])
+async def test_update_cannot_change_owner_or_feed(
+    field_name,
+    input_location,
+):
+    owner_id = uuid.uuid4()
+    feed_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+
+    source = types.SimpleNamespace(
+        id=source_id,
+        owner_id=owner_id,
+        feed_id=feed_id,
+    )
+
+    loader = FakeSourceLoader(
+        sources={source_id: source}
+    )
+
+    ctx = _ctx(
+        loader,
+        user={"id": str(owner_id)},
+    )
+
+    entity = types.SimpleNamespace(
+        id=source_id,
+        entity_id=uuid.uuid4(),
+    )
+
+    extra_values = {}
+
+    if input_location == "entity":
+        setattr(entity, field_name, uuid.uuid4())
+    else:
+        extra_values[field_name] = uuid.uuid4()
+
+    with pytest.raises(ServiceExceptionWithCode) as exc:
+        await FeedSourceService.Update(
+            ctx=ctx,
+            entity=entity,
+            extraValues=extra_values,
+        )
+
+    assert exc.value.code == FEED_SOURCE_IMMUTABLE
+    assert loader.updated_entities == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "foreign_part",
+    ["source", "feed"],
+)
+async def test_cannot_read_foreign_source_by_id(foreign_part):
+    owner_id = uuid.uuid4()
+    feed_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+
+    feed = types.SimpleNamespace(
+        id=feed_id,
+        owner_id=(
+            uuid.uuid4()
+            if foreign_part == "feed"
+            else owner_id
+        ),
+    )
+
+    source = types.SimpleNamespace(
+        id=source_id,
+        feed_id=feed_id,
+        owner_id=(
+            uuid.uuid4()
+            if foreign_part == "source"
+            else owner_id
+        ),
+    )
+
+    ctx = ServiceContext(
+        loaders=types.SimpleNamespace(
+            FeedsModel=FakeSourceLoader(
+                sources={feed_id: feed}
+            ),
+            FeedSourceModel=FakeSourceLoader(
+                sources={source_id: source}
+            ),
+        ),
+        user={"id": str(owner_id)},
+    )
+
+    with pytest.raises(ServiceExceptionWithCode) as exc:
+        await FeedSourceService.ReadById(
+            ctx=ctx,
+            id=str(source_id),
+        )
+
+    expected_code = (
+        FEED_SOURCE_NOT_OWNER
+        if foreign_part == "source"
+        else FEED_NOT_OWNER
+    )
+
+    assert exc.value.code == expected_code
